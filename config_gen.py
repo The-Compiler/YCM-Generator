@@ -199,18 +199,19 @@ def fake_build(project_dir, c_build_log_path, cxx_build_log_path, verbose, make_
         else:
             cache_tmp = None
 
-        print("Running cmake in '{}'...".format(build_dir))
-        run(["cmake", project_dir] + configure_opts, env=env_config, **proc_opts)
+        try:
+            print("Running cmake in '{}'...".format(build_dir))
+            run(["cmake", project_dir] + configure_opts, env=env_config, **proc_opts)
 
-        print("\nRunning make...")
-        run(make_args, env=env, **proc_opts)
+            print("\nRunning make...")
+            run(make_args, env=env, **proc_opts)
+        finally:
+            print("\nCleaning up...")
+            print("")
+            shutil.rmtree(build_dir)
 
-        print("\nCleaning up...")
-        print("")
-        shutil.rmtree(build_dir)
-
-        if(cache_tmp):
-            shutil.move(cache_tmp, cache_path)
+            if(cache_tmp):
+                shutil.move(cache_tmp, cache_path)
 
     elif(os.path.exists(os.path.join(project_dir, "configure"))):
         # autotools
@@ -223,18 +224,19 @@ def fake_build(project_dir, c_build_log_path, cxx_build_log_path, verbose, make_
         else:
             print("Configuring autotools...")
 
-        run([os.path.join(project_dir, "configure")] + configure_opts, env=env_config, **proc_opts)
+        try:
+            run([os.path.join(project_dir, "configure")] + configure_opts, env=env_config, **proc_opts)
 
-        print("\nRunning make...")
-        run(make_args, env=env, **proc_opts)
+            print("\nRunning make...")
+            run(make_args, env=env, **proc_opts)
+        finally:
+            print("\nCleaning up...")
 
-        print("\nCleaning up...")
-
-        if(out_of_tree):
-            print("")
-            shutil.rmtree(build_dir)
-        else:
-            run([make_cmd, "maintainer-clean"], env=env, **proc_opts)
+            if(out_of_tree):
+                print("")
+                shutil.rmtree(build_dir)
+            else:
+                run([make_cmd, "maintainer-clean"], env=env, **proc_opts)
 
     elif(pro_files):
         # qmake
@@ -246,20 +248,22 @@ def fake_build(project_dir, c_build_log_path, cxx_build_log_path, verbose, make_
 
         # run qmake in a temporary directory, then compile the project as usual
         build_dir = tempfile.mkdtemp()
-        proc_opts["cwd"] = build_dir
-        env_config["QT_SELECT"] = qt_version
-        env_config["QMAKESPEC"] = "unsupported/linux-clang" if qt_version == "4" else "linux-clang"
 
-        print("Running qmake in '{}' with Qt {}...".format(build_dir, qt_version))
-        run(["qmake"] + configure_opts + [pro_files[0]], env=env_config,
-            **proc_opts)
+        try:
+            proc_opts["cwd"] = build_dir
+            env_config["QT_SELECT"] = qt_version
+            env_config["QMAKESPEC"] = "unsupported/linux-clang" if qt_version == "4" else "linux-clang"
 
-        print("\nRunning make...")
-        run(make_args, env=env, **proc_opts)
+            print("Running qmake in '{}' with Qt {}...".format(build_dir, qt_version))
+            run(["qmake"] + configure_opts + [pro_files[0]], env=env_config,
+                **proc_opts)
 
-        print("\nCleaning up...")
-        print("")
-        shutil.rmtree(build_dir)
+            print("\nRunning make...")
+            run(make_args, env=env, **proc_opts)
+        finally:
+            print("\nCleaning up...")
+            print("")
+            shutil.rmtree(build_dir)
 
     elif(any([os.path.exists(os.path.join(project_dir, x)) for x in ["GNUmakefile", "makefile", "Makefile"]])):
         # make
